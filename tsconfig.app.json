@@ -24,5 +24,10 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true
   },
-  "include": ["src"]
+  "include": ["src"],
+  "exclude": [
+    "src/App_v1.tsx",
+    "src/**/*_v1.tsx",
+    "src/**/*_backup.tsx"
+  ]
 }
