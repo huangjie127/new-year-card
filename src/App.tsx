@@ -303,7 +303,12 @@ export default function App() {
             <div className="coverSheen" aria-hidden="true" />
             <div className="coverGlow" />
             <div className="coverContent">
-              <img className="coverEmblem coverEmblemGold" src="/picture.png" alt="徽标" draggable={false} />
+              <img
+                className="coverEmblem coverEmblemGold"
+                src={import.meta.env.BASE_URL + "picture.png"}
+                alt="徽标"
+                draggable={false}
+              />
               <div className="coverMain coverMainYear">2026</div>
               <div className="coverSub">HAPPY SPRING FESTIVAL</div>
               <div className="coverFooter">
