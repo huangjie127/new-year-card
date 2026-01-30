@@ -45,6 +45,16 @@ export default function App() {
   const [fortune, setFortune] = useState<FortuneSlip | null>(null);
   const [fortunePicked, setFortunePicked] = useState(false);
   const [selectedCard, setSelectedCard] = useState<number | null>(null);
+  const [fortuneSelectPhase, setFortuneSelectPhase] = useState<"enter" | "fan">("enter");
+
+  const [ritualOpenedOnce, setRitualOpenedOnce] = useState(() => {
+    try {
+      return localStorage.getItem("nyc_ritual_opened_once_v1") === "1";
+    } catch {
+      return false;
+    }
+  });
+  const [ritualHintVisible, setRitualHintVisible] = useState(false);
 
   const bgCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const fireCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -68,11 +78,19 @@ export default function App() {
   const blossomCount = useMemo(() => (blossomLevel === "heavy" ? 42 : 26), [blossomLevel]);
 
   const openFortuneUI = () => {
-    setFortuneUI(fortunePicked ? "result" : "select");
+    if (fortunePicked) {
+      setFortuneUI("result");
+      return;
+    }
+    setSelectedCard(null);
+    setFortuneSelectPhase("enter");
+    setFortuneUI("select");
+    window.setTimeout(() => setFortuneSelectPhase("fan"), 520);
   };
 
   const closeFortuneUI = () => {
     setFortuneUI("closed");
+    setRitualHintVisible(false);
   };
 
   const pickFortuneCard = (index: number) => {
@@ -86,6 +104,25 @@ export default function App() {
     // Let the card flip feel intentional before showing full content.
     window.setTimeout(() => setFortuneUI("result"), 520);
   };
+
+  useEffect(() => {
+    if (!open) {
+      setRitualHintVisible(false);
+      return;
+    }
+
+    if (!ritualOpenedOnce) {
+      try {
+        localStorage.setItem("nyc_ritual_opened_once_v1", "1");
+      } catch {
+        // ignore
+      }
+      setRitualOpenedOnce(true);
+    }
+
+    const id = window.setTimeout(() => setRitualHintVisible(true), 680);
+    return () => window.clearTimeout(id);
+  }, [open, ritualOpenedOnce]);
 
   const triggerFireworks = () => {
     const canvas = fireCanvasRef.current;
@@ -286,6 +323,21 @@ export default function App() {
                       </div>
                     </div>
                     <div className="insidePoemSig">敬上：奇绩创坛</div>
+
+                    {open && !fortuneOpen && !fortunePicked && ritualOpenedOnce ? (
+                      <button
+                        type="button"
+                        className={"ritualHint" + (ritualHintVisible ? " isVisible" : "")}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openFortuneUI();
+                        }}
+                        aria-label="抽一签"
+                      >
+                        <span className="ritualHintDot" aria-hidden="true" />
+                        <span className="ritualHintLabel">抽一签</span>
+                      </button>
+                    ) : null}
             </div>
           </div>
 
@@ -342,12 +394,16 @@ export default function App() {
               if (e.target === e.currentTarget) closeFortuneUI();
             }}
           >
-            <div className={"fortuneModal " + (fortuneUI === "select" ? "isSelect" : "isResult")}> 
+            <div
+              className={"fortuneModal " + (fortuneUI === "select" ? "isSelect" : "isResult")}
+              data-phase={fortuneUI === "select" ? fortuneSelectPhase : undefined}
+              data-picked={fortuneUI === "select" && selectedCard !== null ? "1" : "0"}
+            >
               {fortuneUI === "select" ? (
                 <>
                   <div className="fortuneHeader">
                     <div className="fortuneGrade">上签库</div>
-                    <div className="fortuneTitle">请选择一张签卡</div>
+                    <div className="fortuneTitle">请静心，选一张签卡</div>
                   </div>
                   <div className="fortuneCards" role="list">
                     {Array.from({ length: 5 }).map((_, i) => (
@@ -358,6 +414,17 @@ export default function App() {
                         onClick={() => pickFortuneCard(i)}
                         role="listitem"
                         aria-label={`选择第 ${i + 1} 张签卡`}
+                        style={
+                          {
+                            "--i": i,
+                            "--dx": `${(i - 2) * 54}px`,
+                            "--dy": `${Math.abs(i - 2) * 8}px`,
+                            "--rot": `${(i - 2) * 7}deg`,
+                            "--stackX": `${(i - 2) * 3}px`,
+                            "--stackY": `${i * 2}px`,
+                            "--stackR": `${(i - 2) * 1.2}deg`,
+                          } as React.CSSProperties
+                        }
                       >
                         <span className="fortuneCardInner" aria-hidden="true">
                           <span className="fortuneCardFace fortuneCardBack" />
