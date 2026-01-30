@@ -1,0 +1,734 @@
+:root{
+  --bg0: #fbf8f1;
+  --bg1: #f4efe4;
+  --gold: #f6d57a;
+  --gold2: #ffe7a6;
+  --red0: #8b0f16;
+  --red1: #c4141f;
+  --paper: #fff6e9;
+  --ink: rgba(20, 18, 18, 0.86);
+  --shadow: 0 26px 70px rgba(0,0,0,0.22);
+  --radius: 18px;
+  --font-cn-serif: "Songti SC", "STSong", "Noto Serif SC", "Source Han Serif SC", "Source Han Serif CN", "SimSun", "KaiTi", "Kaiti SC", "STKaiti", serif;
+  --font-cn-sans: ui-sans-serif, system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", "Segoe UI", Inter, Arial, sans-serif;
+}
+
+*{ box-sizing: border-box; }
+html, body { height: 100%; margin: 0; padding: 0; }
+
+body{
+  background:
+    linear-gradient(180deg, var(--bg0), var(--bg1)),
+    repeating-linear-gradient(90deg, rgba(70, 60, 45, 0.012) 0 2px, rgba(255,255,255,0) 2px 8px),
+    url("data:image/svg+xml,%3Csvg width='240' height='240' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.12'/%3E%3C/svg%3E");
+  color: rgba(20, 18, 18, 0.92);
+  overflow: hidden;
+  font-family: var(--font-cn-serif);
+  text-rendering: geometricPrecision;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body::before{
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(800px 700px at 0% 0%, rgba(120,110,90,0.12), transparent 60%),
+    radial-gradient(900px 750px at 100% 0%, rgba(120,110,90,0.10), transparent 60%),
+    radial-gradient(900px 750px at 0% 100%, rgba(120,110,90,0.10), transparent 60%),
+    radial-gradient(900px 750px at 100% 100%, rgba(120,110,90,0.12), transparent 60%),
+    radial-gradient(1200px 900px at 50% 45%, transparent 55%, rgba(120,110,90,0.14) 100%);
+  mix-blend-mode: multiply;
+  opacity: 0.55;
+}
+
+body::after{
+  content: "";
+  position: fixed;
+  inset: -2px;
+  pointer-events: none;
+  border-radius: 22px;
+  box-shadow:
+    inset 0 0 0 2px rgba(120,110,90,0.06),
+    inset 0 0 80px rgba(120,110,90,0.10);
+  filter: blur(0.6px);
+  opacity: 0.75;
+}
+
+.newYearRoot{
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+}
+
+.bgCanvas{
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  opacity: 1;
+  z-index: 0;
+}
+
+.cardStage{
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  z-index: 1;
+}
+
+/* 3D Book */
+.book{
+  position: relative;
+  width: clamp(320px, 70vw, 440px);
+  height: clamp(480px, 78vh, 660px);
+  perspective: 1400px;
+}
+
+.page{
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius);
+  overflow: hidden;
+  transform-style: preserve-3d;
+}
+
+.inside{
+  background:
+    radial-gradient(800px 600px at 50% 15%, rgba(255,255,255,0.55), transparent 62%),
+    linear-gradient(180deg, #fff2de, var(--paper));
+  box-shadow: var(--shadow);
+  border: 1px solid rgba(255,255,255,0.12);
+  transform: translateZ(-1px);
+}
+
+.inside::before{
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(900px 700px at 15% 10%, rgba(196, 20, 31, 0.10), transparent 55%),
+    radial-gradient(900px 700px at 85% 12%, rgba(196, 20, 31, 0.08), transparent 55%),
+    radial-gradient(900px 700px at 50% 92%, rgba(246, 213, 122, 0.08), transparent 55%);
+  z-index: 0;
+  pointer-events: none;
+}
+
+.inside::after{
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(800px 520px at 50% 90%, rgba(120,110,90,0.08), transparent 62%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260' viewBox='0 0 260 260'%3E%3Cg fill='none' stroke-linecap='round' stroke-linejoin='round'%3E%3Cg stroke='rgba(140,90,90,0.26)' stroke-width='2'%3E%3Cpath d='M28 78c10-18 30-28 52-24 10-18 30-30 54-30 24 0 44 12 54 30 20-6 42 2 52 22'/%3E%3Cpath d='M36 154c12-18 34-28 58-22 10-18 30-30 54-30 24 0 44 12 54 30 22-8 44 2 56 22'/%3E%3Cpath d='M54 116c8-12 22-18 38-14 8-14 22-22 38-22 16 0 30 8 38 22 16-4 30 2 38 14'/%3E%3C/g%3E%3Cg stroke='rgba(140,90,90,0.18)' stroke-width='1.6'%3E%3Cpath d='M70 204c8-12 22-18 38-14 8-14 22-22 38-22 16 0 30 8 38 22 16-4 30 2 38 14'/%3E%3Cpath d='M22 208c6-10 18-16 32-14 6-12 18-20 32-20 14 0 26 8 32 20 14-4 26 2 32 14'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+  background-repeat: no-repeat, repeat;
+  background-size: cover, 260px 260px;
+  opacity: 0.09;
+  mix-blend-mode: multiply;
+  filter: blur(0.35px);
+  z-index: 0;
+  pointer-events: none;
+}
+
+.fireworksCanvas{
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.insideContent{
+  position: absolute;
+  inset: 0;
+  display: block;
+  padding: 46px;
+  text-align: center;
+  z-index: 3;
+}
+
+.insideFrame{
+  position: absolute;
+  inset: 22px;
+  border-radius: calc(var(--radius) - 8px);
+  border: 1px solid rgba(196, 20, 31, 0.14);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.55);
+  pointer-events: none;
+}
+
+.insideFrame::after{
+  content: "";
+  position: absolute;
+  inset: 10px;
+  border-radius: calc(var(--radius) - 16px);
+  border: 1px dashed rgba(196, 20, 31, 0.10);
+  opacity: 0.7;
+}
+
+.insideBlessingVertical{
+  position: absolute;
+  left: clamp(20px, 5vw, 44px);
+  top: clamp(22px, 6vh, 52px);
+  writing-mode: horizontal-tb;
+  text-orientation: mixed;
+  color: rgba(70, 24, 24, 0.86);
+  letter-spacing: 0.10em;
+  user-select: none;
+  height: calc(100% - 140px);
+  z-index: 2;
+  padding-left: 14px;
+}
+
+.insideBlessingVertical::before{
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    rgba(120, 70, 70, 0.30) 18%,
+    rgba(120, 70, 70, 0.18) 82%,
+    transparent
+  );
+  opacity: 0.9;
+}
+
+.insidePoemLines{
+  display: flex;
+  flex-direction: row-reverse;
+  align-items: flex-start;
+  gap: clamp(10px, 1.4vw, 14px);
+  height: 100%;
+}
+
+.insidePoemText{
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  font-size: clamp(16px, 2.2vw, 22px);
+  font-weight: 650;
+  line-height: 1.22;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.65);
+}
+
+.insidePoemSig{
+  position: absolute;
+  right: clamp(18px, 4vw, 44px);
+  bottom: clamp(16px, 3.5vh, 34px);
+  writing-mode: horizontal-tb;
+  text-orientation: mixed;
+  font-size: 14px;
+  letter-spacing: 0.18em;
+  color: rgba(90, 34, 34, 0.72);
+  user-select: none;
+  z-index: 2;
+}
+
+
+
+@media (max-width: 480px){
+  .insideBlessingVertical{
+    left: 18px;
+    top: 40px;
+    letter-spacing: 0.1em;
+    padding-left: 12px;
+  }
+  .insidePoemText{
+    font-size: 18px;
+  }
+  .insidePoemSig{
+    right: 16px;
+    bottom: 14px;
+    font-size: 12px;
+  }
+}
+
+.cover{
+  cursor: pointer;
+  transform-origin: left center;
+  transition: transform 1100ms cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: var(--shadow);
+  background:
+    radial-gradient(900px 700px at 20% 15%, rgba(255,255,255,0.16), transparent 60%),
+    radial-gradient(900px 700px at 85% 10%, rgba(255,230,160,0.18), transparent 55%),
+    linear-gradient(160deg, var(--red1), var(--red0));
+  border: 1px solid rgba(255,255,255,0.14);
+  backface-visibility: hidden;
+}
+
+.cover::before{
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius);
+  background: linear-gradient(90deg, rgba(255,255,255,0.22), transparent 18%);
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.book[data-open="1"] .cover{
+  transform: rotateY(-155deg);
+}
+
+.coverGlow{
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(600px 500px at 50% 30%, rgba(255, 220, 140, 0.22), transparent 65%);
+  mix-blend-mode: screen;
+}
+
+.coverPattern{
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(700px 520px at 50% 30%, rgba(255,230,160,0.12), transparent 60%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240' viewBox='0 0 240 240'%3E%3Cg fill='none' stroke='rgba(255,231,166,0.55)' stroke-width='2'%3E%3Cpath d='M30 150c18-26 54-32 76-16 10-20 32-34 56-34 20 0 38 10 50 26'/%3E%3Cpath d='M32 96c14-20 42-24 60-12 8-16 26-28 46-28 16 0 30 8 40 20'/%3E%3Cpath d='M58 184c10-14 30-18 44-8 6-12 18-20 32-20 12 0 22 6 30 14'/%3E%3C/g%3E%3C/svg%3E");
+  background-repeat: no-repeat, repeat;
+  background-size: cover, 240px 240px;
+  opacity: 0.22;
+  mix-blend-mode: overlay;
+  pointer-events: none;
+}
+
+.coverFrame{
+  position: absolute;
+  inset: 18px;
+  border-radius: calc(var(--radius) - 10px);
+  border: 1px solid rgba(255,231,166,0.55);
+  box-shadow:
+    inset 0 0 0 1px rgba(255,231,166,0.18),
+    inset 0 0 0 10px rgba(0,0,0,0.08);
+  pointer-events: none;
+}
+
+.coverFrame::before,
+.coverFrame::after{
+  content: "";
+  position: absolute;
+  inset: 10px;
+  border-radius: calc(var(--radius) - 18px);
+  border: 1px solid rgba(255,231,166,0.20);
+}
+
+.coverSheen{
+  position: absolute;
+  inset: -40px;
+  background: linear-gradient(120deg, transparent 20%, rgba(255,255,255,0.22) 35%, transparent 52%);
+  transform: translateX(-40%) rotate(6deg);
+  opacity: 0.0;
+  pointer-events: none;
+  animation: coverSheen 5.6s ease-in-out infinite;
+}
+
+@keyframes coverSheen{
+  0% { transform: translateX(-45%) rotate(6deg); opacity: 0; }
+  18% { opacity: 0; }
+  28% { opacity: 0.35; }
+  40% { transform: translateX(35%) rotate(6deg); opacity: 0.18; }
+  56% { opacity: 0; }
+  100% { transform: translateX(35%) rotate(6deg); opacity: 0; }
+}
+
+.coverContent{
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 54px;
+  text-align: center;
+}
+
+.coverContent::before,
+.coverContent::after{
+  content: "";
+  position: absolute;
+  width: 110px;
+  height: 110px;
+  border: 1px solid rgba(246, 213, 122, 0.35);
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.coverContent::before{
+  top: 36px;
+  left: 36px;
+  border-right: 0;
+  border-bottom: 0;
+  border-radius: 14px 0 0 0;
+}
+
+.coverContent::after{
+  bottom: 36px;
+  right: 36px;
+  border-left: 0;
+  border-top: 0;
+  border-radius: 0 0 14px 0;
+}
+
+.coverEmblem{
+  width: min(170px, 40%);
+  height: auto;
+  margin-top: 8px;
+  opacity: 0.95;
+  filter: drop-shadow(0 14px 26px rgba(0,0,0,0.22));
+  display: block;
+  object-fit: contain;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* Turn a transparent PNG logo into a gold foil-like tone */
+.coverEmblemGold{
+  opacity: 0.98;
+  filter:
+    brightness(0)
+    saturate(100%)
+    invert(91%)
+    sepia(22%)
+    saturate(860%)
+    hue-rotate(0deg)
+    brightness(112%)
+    contrast(96%)
+    drop-shadow(0 14px 26px rgba(0,0,0,0.22));
+}
+
+.coverMain{
+  margin-top: 18px;
+  font-size: clamp(34px, 6vw, 56px);
+  letter-spacing: 0.22em;
+  color: rgba(255, 231, 166, 0.98);
+  font-family: var(--font-cn-serif);
+  font-weight: 800;
+  text-shadow: 0 18px 38px rgba(0,0,0,0.28);
+  line-height: 1.12;
+}
+
+.coverMainYear{
+  font-size: clamp(52px, 8vw, 82px);
+  letter-spacing: 0.10em;
+}
+
+.coverSub{
+  margin-top: 10px;
+  font-size: 11px;
+  letter-spacing: 0.28em;
+  color: rgba(255,255,255,0.78);
+  font-family: var(--font-cn-sans);
+  text-transform: uppercase;
+}
+
+.coverFooter{
+  margin-top: 18px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.coverHint{
+  margin-top: 0;
+  font-size: 12px;
+  color: rgba(255,255,255,0.72);
+  letter-spacing: 0.12em;
+  font-family: var(--font-cn-serif);
+}
+
+.controls{
+  position: absolute;
+  bottom: 22px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 10px;
+  padding: 10px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.70);
+  border: 1px solid rgba(70,60,45,0.16);
+  backdrop-filter: blur(10px);
+}
+
+.btn{
+  appearance: none;
+  border: 1px solid rgba(70,60,45,0.14);
+  background: rgba(255,255,255,0.62);
+  color: rgba(20, 18, 18, 0.86);
+  padding: 10px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 13px;
+  font-family: var(--font-cn-serif);
+  transition: transform 220ms ease, background 220ms ease, opacity 220ms ease;
+}
+
+.fortuneOverlay{
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(20, 18, 18, 0.22);
+  backdrop-filter: blur(6px);
+}
+
+.fortuneModal{
+  width: min(520px, calc(100vw - 36px));
+  max-height: min(74vh, 620px);
+  overflow: auto;
+  border-radius: 18px;
+  background:
+    radial-gradient(700px 520px at 18% 10%, rgba(255,255,255,0.70), transparent 62%),
+    linear-gradient(180deg, rgba(255,244,232,0.96), rgba(255,238,220,0.96));
+  border: 1px solid rgba(120,110,90,0.18);
+  box-shadow: 0 26px 70px rgba(0,0,0,0.22);
+  padding: 18px 18px 16px;
+}
+
+.fortuneHeader{
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px dashed rgba(120,110,90,0.22);
+}
+
+.fortuneGrade{
+  font-size: 12px;
+  letter-spacing: 0.22em;
+  color: rgba(120, 40, 40, 0.72);
+}
+
+.fortuneTitle{
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: rgba(40, 18, 18, 0.88);
+}
+
+.fortunePoem{
+  padding: 14px 2px 6px;
+}
+
+.fortunePoemLine{
+  font-size: 16px;
+  line-height: 1.65;
+  letter-spacing: 0.10em;
+  color: rgba(40, 18, 18, 0.84);
+}
+
+.fortuneSection{
+  padding-top: 10px;
+}
+
+.fortuneLabel{
+  font-size: 12px;
+  letter-spacing: 0.22em;
+  color: rgba(70, 24, 24, 0.62);
+  margin-bottom: 6px;
+}
+
+.fortuneText{
+  font-size: 14px;
+  line-height: 1.75;
+  letter-spacing: 0.04em;
+  color: rgba(30, 18, 18, 0.78);
+}
+
+.fortuneList{
+  margin: 0;
+  padding-left: 18px;
+  color: rgba(30, 18, 18, 0.78);
+  font-size: 14px;
+  line-height: 1.75;
+  letter-spacing: 0.04em;
+}
+
+.fortuneActions{
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 14px;
+}
+
+.fortuneCards{
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  padding: 16px 4px 6px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.22);
+  border: 1px solid rgba(120,110,90,0.14);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.35);
+}
+
+.fortuneCards.isResult{
+  padding: 14px 4px 8px;
+}
+
+.fortuneCard{
+  appearance: none;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  width: 86px;
+  height: 132px;
+  border-radius: 14px;
+  cursor: pointer;
+  perspective: 900px;
+  transform: translateZ(0);
+}
+
+.fortuneCard:active{
+  transform: translateY(1px);
+}
+
+.fortuneCardInner{
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  transition: transform 650ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.fortuneCard.isSelected .fortuneCardInner{
+  transform: rotateY(180deg);
+}
+
+.fortuneCard.isDim{
+  opacity: 0.55;
+  filter: saturate(0.9);
+}
+
+.fortuneCardFace{
+  position: absolute;
+  inset: 0;
+  border-radius: 14px;
+  backface-visibility: hidden;
+  border: 1px solid rgba(255, 231, 166, 0.42);
+  box-shadow:
+    0 16px 36px rgba(0,0,0,0.18),
+    0 0 0 1px rgba(120,110,90,0.14);
+}
+
+.fortuneCard:hover .fortuneCardFace{
+  box-shadow:
+    0 18px 40px rgba(0,0,0,0.20),
+    0 0 0 1px rgba(255, 231, 166, 0.22),
+    0 0 0 3px rgba(255, 231, 166, 0.10);
+}
+
+.fortuneCard.isSelected .fortuneCardFace{
+  box-shadow:
+    0 20px 44px rgba(0,0,0,0.20),
+    0 0 0 1px rgba(255, 231, 166, 0.28),
+    0 0 0 4px rgba(246, 213, 122, 0.16);
+}
+
+.fortuneCardBack{
+  background:
+    radial-gradient(140px 120px at 50% 28%, rgba(255,231,166,0.20), transparent 70%),
+    linear-gradient(160deg, rgba(196,20,31,0.86), rgba(120,15,20,0.92));
+}
+
+.fortuneCardBack::before{
+  content: "";
+  position: absolute;
+  inset: 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,231,166,0.40);
+  box-shadow: inset 0 0 0 1px rgba(255,231,166,0.14);
+}
+
+.fortuneCardBack::after{
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 14px;
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180' viewBox='0 0 180 180'%3E%3Cg fill='none' stroke='rgba(255,231,166,0.38)' stroke-width='2'%3E%3Cpath d='M18 108c14-22 44-28 66-14 10-18 30-30 52-30 18 0 34 10 46 24'/%3E%3Cpath d='M22 138c12-18 34-28 58-22 10-18 30-30 54-30 24 0 44 12 54 30'/%3E%3C/g%3E%3C/svg%3E");
+  background-size: 180px 180px;
+  background-repeat: repeat;
+  opacity: 0.18;
+  mix-blend-mode: overlay;
+}
+
+/* Selection mode: make the card back pattern more distinguishable */
+.fortuneModal.isSelect .fortuneCardBack::after{
+  background-image:
+    repeating-linear-gradient(
+      45deg,
+      rgba(255, 231, 166, 0.00) 0px,
+      rgba(255, 231, 166, 0.00) 7px,
+      rgba(255, 231, 166, 0.10) 7px,
+      rgba(255, 231, 166, 0.10) 9px
+    ),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180' viewBox='0 0 180 180'%3E%3Cg fill='none' stroke='rgba(255,231,166,0.52)' stroke-width='2.2' stroke-linecap='round'%3E%3Cpath d='M18 108c14-22 44-28 66-14 10-18 30-30 52-30 18 0 34 10 46 24'/%3E%3Cpath d='M22 138c12-18 34-28 58-22 10-18 30-30 54-30 24 0 44 12 54 30'/%3E%3C/g%3E%3C/svg%3E");
+  opacity: 0.34;
+}
+
+.fortuneModal.isSelect .fortuneCardBack{
+  box-shadow:
+    inset 0 0 0 1px rgba(255,231,166,0.18),
+    inset 0 0 18px rgba(0,0,0,0.18);
+}
+
+/* Result mode: keep it a bit softer */
+.fortuneModal.isResult .fortuneCardBack::after{
+  opacity: 0.16;
+}
+
+.fortuneCardFront{
+  transform: rotateY(180deg);
+  background:
+    radial-gradient(520px 380px at 20% 10%, rgba(255,255,255,0.75), transparent 62%),
+    linear-gradient(180deg, rgba(255,244,232,0.98), rgba(255,238,220,0.98));
+}
+
+.fortuneCardFrontText{
+  position: absolute;
+  inset: 14px;
+  border-radius: 10px;
+  border: 1px dashed rgba(120,110,90,0.22);
+  display: grid;
+  place-items: center;
+  text-align: center;
+  color: rgba(40, 18, 18, 0.86);
+}
+
+.fortuneCardFrontGrade{
+  font-size: 12px;
+  letter-spacing: 0.22em;
+  color: rgba(120, 40, 40, 0.70);
+}
+
+.fortuneCardFrontTitle{
+  margin-top: 6px;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+
+@media (max-width: 480px){
+  .fortuneCards{ gap: 10px; }
+  .fortuneCard{ width: 72px; height: 112px; }
+}
+
+.btn:hover:not(:disabled){
+  background: rgba(255,255,255,0.82);
+  transform: translateY(-1px);
+}
+
+.btn:disabled{
+  opacity: 0.5;
+  cursor: not-allowed;
+}
