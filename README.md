@@ -22,6 +22,18 @@ npm run dev
 
 The frontend uses Vite proxy to call the backend at `/api/*`.
 
+## Deploy (GitHub Pages)
+
+This repo includes a GitHub Actions workflow that builds the Vite app and deploys `dist/` to GitHub Pages.
+
+1) Push this project to your GitHub repo.
+2) In GitHub: **Settings → Pages → Build and deployment → Source: GitHub Actions**.
+3) After a push to `main`/`master`, the site will be available at:
+
+`https://<your-username>.github.io/<your-repo-name>/`
+
+Note: GitHub Pages is static hosting. The `server/` backend will NOT be deployed there. If your frontend needs `/api/*` in production, you must host the backend elsewhere and point the frontend to that URL.
+
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
 Currently, two official plugins are available:

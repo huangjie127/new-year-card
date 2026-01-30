@@ -1,119 +1,181 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type RefObject } from "react";
 import "./styles/app.css";
-import { renderConstellation, canvasToNormalizedPoint, type ConstellationScene } from "./modules/constellation/render";
-import { createShare, loadShare } from "./modules/share/api";
-import { makeShareUrl, getShareIdFromUrl } from "./modules/share/url";
+import {
+  createPeachBlossoms,
+  createUserBlossom,
+  renderPeachBlossoms,
+  stepPeachBlossoms,
+  type PeachBlossom,
+} from "./modules/effects/peachBlossoms";
+import { renderFireworks, spawnBurst, stepFireworks, type FireworkBurst } from "./modules/effects/fireworks";
+import { FORTUNE_SLIPS, type FortuneSlip } from "./modules/fortune/slips";
 
-function randBetween(a: number, b: number) {
-  return a + Math.random() * (b - a);
-}
+function useCanvasSize(ref: RefObject<HTMLCanvasElement | null>) {
+  const sizeRef = useRef({ w: 0, h: 0, dpr: 1 });
 
-function makeDefaultScene(): ConstellationScene {
-  return {
-    version: 2,
-    points: [],
-    bg: { a: "#05070f", b: "#0b1530" },
-    lineColor: "rgba(170, 210, 255, 1)",
-    pointColor: "rgba(255, 255, 255, 1)",
-    glowColor: "rgba(120, 190, 255, 1)",
-    template: "center",
-    text: {
-      content: "新年快乐 / Happy New Year",
-      color: "rgba(255,255,255,0.92)",
-      fontSize: 44,
-      fontFamily: "ui-sans-serif, system-ui, -apple-system, Segoe UI, Inter, Arial",
-      weight: 600,
-    },
-  };
-}
-
-export default function App() {
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const rafRef = useRef<number | null>(null);
-  const [scene, setScene] = useState<ConstellationScene>(() => makeDefaultScene());
-  const [guideStep, setGuideStep] = useState(0); // 0:Head, 1:FrontLegs, 2:BackLegs, 3:Tail, 4:Done
-  const [toast, setToast] = useState<string | null>(null);
-  const toastTimerRef = useRef<number | null>(null);
-
-  const guides = [
-    { text: "步骤 1/4：请点击【马头】的位置", hint: "建议在左上方或上方" },
-    { text: "步骤 2/4：请点击【前腿】（2-3个点）", hint: "马的前肢关节" },
-    { text: "步骤 3/4：请点击【后腿】（2-3个点）", hint: "强壮的后肢" },
-    { text: "步骤 4/4：请点击【马尾】的位置", hint: "飘逸的尾巴" },
-    { text: "完成！继续点击补充细节，或保存", hint: "任意位置点击增加星光" },
-  ];
-  
-  const currentGuide = guides[Math.min(guideStep, 4)];
-  const guideStatus = guideStep < 4 ? currentGuide.text : "点击画布添加更多星点；右键撤销。";
-  const status = toast ?? guideStatus;
-
-  const setStatus = (msg: string) => {
-    setToast(msg);
-    if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
-    toastTimerRef.current = window.setTimeout(() => setToast(null), 2200);
-  };
-
-  // Load share by ?id=xxx
   useEffect(() => {
-    const id = getShareIdFromUrl();
-    if (!id) return;
-    
-    // If sharing, skip guide
-    setGuideStep(4);
-
-    (async () => {
-      try {
-        const loaded = await loadShare(id);
-        // keep backward compatibility: only accept version 2 constellation scenes
-        if ((loaded as unknown as ConstellationScene)?.version === 2 && Array.isArray((loaded as unknown as ConstellationScene).points)) {
-          setScene(loaded as unknown as ConstellationScene);
-          setStatus(`已从分享链接恢复（${id}）`);
-        } else {
-          setStatus("分享内容版本不匹配，已忽略。");
-        }
-      } catch {
-        setStatus("分享内容读取失败。");
-      }
-    })();
-  }, []);
-
-  // Resize canvas to container
-  useEffect(() => {
-    const canvas = canvasRef.current;
+    const canvas = ref.current;
     if (!canvas) return;
 
     const resize = () => {
-      const parent = canvas.parentElement!;
-      const r = parent.getBoundingClientRect();
+      const r = canvas.getBoundingClientRect();
       const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
       canvas.width = Math.floor(r.width * dpr);
       canvas.height = Math.floor(r.height * dpr);
-      canvas.style.width = `${Math.floor(r.width)}px`;
-      canvas.style.height = `${Math.floor(r.height)}px`;
+      sizeRef.current = { w: Math.floor(r.width), h: Math.floor(r.height), dpr };
     };
 
     resize();
     const ro = new ResizeObserver(resize);
-    ro.observe(canvas.parentElement!);
+    ro.observe(canvas);
     window.addEventListener("resize", resize);
     return () => {
       ro.disconnect();
       window.removeEventListener("resize", resize);
     };
-  }, []);
+  }, [ref]);
 
-  // Render loop
+  return sizeRef;
+}
+
+export default function App() {
+  const [open, setOpen] = useState(false);
+  const [blossomLevel, setBlossomLevel] = useState<"light" | "heavy">("light");
+  const [fortuneUI, setFortuneUI] = useState<"closed" | "select" | "result">("closed");
+  const [fortune, setFortune] = useState<FortuneSlip | null>(null);
+  const [fortunePicked, setFortunePicked] = useState(false);
+  const [selectedCard, setSelectedCard] = useState<number | null>(null);
+
+  const bgCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const fireCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const bookRef = useRef<HTMLDivElement | null>(null);
+  const controlsRef = useRef<HTMLDivElement | null>(null);
+
+  const bgSizeRef = useCanvasSize(bgCanvasRef);
+  const fireSizeRef = useCanvasSize(fireCanvasRef);
+
+  const blossomsRef = useRef<PeachBlossom[]>([]);
+  const burstsRef = useRef<FireworkBurst[]>([]);
+  const rafRef = useRef<number | null>(null);
+  const lastRef = useRef<number>(0);
+
+  const nextIdRef = useRef(1);
+  const dragRef = useRef<null | { id: number; pointerId: number; dx: number; dy: number }>(null);
+  const lastBgPxRef = useRef<{ w: number; h: number } | null>(null);
+
+  const fortuneOpen = fortuneUI !== "closed";
+
+  const blossomCount = useMemo(() => (blossomLevel === "heavy" ? 42 : 26), [blossomLevel]);
+
+  const openFortuneUI = () => {
+    setFortuneUI(fortunePicked ? "result" : "select");
+  };
+
+  const closeFortuneUI = () => {
+    setFortuneUI("closed");
+  };
+
+  const pickFortuneCard = (index: number) => {
+    if (fortunePicked) return;
+    setSelectedCard(index);
+
+    const pick = FORTUNE_SLIPS[Math.floor(Math.random() * FORTUNE_SLIPS.length)];
+    setFortune(pick);
+    setFortunePicked(true);
+
+    // Let the card flip feel intentional before showing full content.
+    window.setTimeout(() => setFortuneUI("result"), 520);
+  };
+
+  const triggerFireworks = () => {
+    const canvas = fireCanvasRef.current;
+    const ctx = canvas?.getContext("2d");
+    if (!canvas || !ctx) return;
+
+    const { w, h } = fireSizeRef.current;
+    // burst near top half of inner card
+    const x = w * (0.25 + Math.random() * 0.5);
+    const y = h * (0.18 + Math.random() * 0.35);
+    burstsRef.current.push(spawnBurst(x, y, 1));
+  };
+
+  // Auto fireworks when opening
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+    if (!open) return;
+    triggerFireworks();
+    const id = window.setInterval(() => triggerFireworks(), 900);
+    const stop = window.setTimeout(() => window.clearInterval(id), 3000);
+    return () => {
+      window.clearInterval(id);
+      window.clearTimeout(stop);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  // Animation loop (snow + fireworks)
+  useEffect(() => {
+    const bgCanvas = bgCanvasRef.current;
+    const fireCanvas = fireCanvasRef.current;
+    const bgCtx = bgCanvas?.getContext("2d");
+    const fireCtx = fireCanvas?.getContext("2d");
+
+    if (!bgCanvas || !bgCtx) return;
+
+    // (re)seed blossoms when count changes or size becomes available
+    const ensureBlossoms = () => {
+      const { w, h, dpr } = bgSizeRef.current;
+      if (!w || !h) return;
+      const W = w * dpr;
+      const H = h * dpr;
+
+      // Scale existing user blossoms when the canvas size changes.
+      const prev = lastBgPxRef.current;
+      const sizeChanged = !prev || prev.w !== W || prev.h !== H;
+      if (!prev || prev.w !== W || prev.h !== H) {
+        if (prev && prev.w > 0 && prev.h > 0) {
+          const sx = W / prev.w;
+          const sy = H / prev.h;
+          for (const it of blossomsRef.current) {
+            if (it.user) {
+              it.x *= sx;
+              it.y *= sy;
+              it.vx *= sx;
+              it.vy *= sy;
+            }
+          }
+        }
+        lastBgPxRef.current = { w: W, h: H };
+      }
+
+      const user = blossomsRef.current.filter((it) => it.user);
+      const autoExisting = blossomsRef.current.filter((it) => !it.user);
+      if (sizeChanged || autoExisting.length !== blossomCount) {
+        const auto = createPeachBlossoms(blossomCount, W, H, 20260129);
+        blossomsRef.current = [...auto, ...user];
+      }
+    };
 
     const tick = (t: number) => {
-      const parent = canvas.parentElement!;
-      const r = parent.getBoundingClientRect();
-      const dpr = canvas.width / Math.max(1, Math.floor(r.width));
-      renderConstellation(ctx, scene, t, { w: Math.floor(r.width), h: Math.floor(r.height), dpr });
+      const dt = Math.min(0.033, lastRef.current ? (t - lastRef.current) / 1000 : 0.016);
+      lastRef.current = t;
+
+      ensureBlossoms();
+      const { w: bw, h: bh, dpr: bdpr } = bgSizeRef.current;
+      if (bw && bh) {
+        stepPeachBlossoms(blossomsRef.current, dt, bw * bdpr, bh * bdpr, 20260129);
+        renderPeachBlossoms(bgCtx, blossomsRef.current, bw * bdpr, bh * bdpr);
+      }
+
+      if (fireCanvas && fireCtx) {
+        const { w: fw, h: fh, dpr: fdpr } = fireSizeRef.current;
+        if (fw && fh) {
+          fireCtx.setTransform(1, 0, 0, 1, 0, 0);
+          fireCtx.scale(fdpr, fdpr);
+          stepFireworks(burstsRef.current, dt);
+          renderFireworks(fireCtx, burstsRef.current, fw, fh);
+        }
+      }
+
       rafRef.current = requestAnimationFrame(tick);
     };
 
@@ -121,216 +183,248 @@ export default function App() {
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
-  }, [scene]);
+  }, [blossomCount, bgSizeRef, fireSizeRef]);
 
-  const actions = useMemo(() => {
-    return {
-      addPoint: (x: number, y: number) => {
-        setScene((s) => ({
-          ...s,
-          points: [
-            ...s.points,
-            {
-              x,
-              y,
-              phase: randBetween(0, Math.PI * 2),
-              speed: randBetween(1.0, 2.4),
-            },
-          ],
-        }));
-      },
-      undo: () => {
-        setScene((s) => {
-          const nextPoints = s.points.slice(0, -1);
-          const n = nextPoints.length;
-          setGuideStep(() => {
-            if (n <= 0) return 0;
-            if (n <= 2) return 1;
-            if (n <= 4) return 2;
-            if (n <= 5) return 3;
-            return 4;
-          });
-          return { ...s, points: nextPoints };
-        });
-      },
-      clear: () => {
-        setScene((s) => ({ ...s, points: [] }));
-        setGuideStep(0);
-      },
-      toggleTemplate: () => {
-        setScene((s) => ({ ...s, template: s.template === "center" ? "lowerThird" : "center" }));
-      },
-      randomPalette: () => {
-        const palettes = [
-          { a: "#05070f", b: "#0b1530", glow: "rgba(120,190,255,1)" },
-          { a: "#07050f", b: "#2a0b30", glow: "rgba(255,140,220,1)" },
-          { a: "#02070a", b: "#052a22", glow: "rgba(120,255,210,1)" },
-        ];
-        const p = palettes[Math.floor(Math.random() * palettes.length)];
-        setScene((s) => ({
-          ...s,
-          bg: { a: p.a, b: p.b },
-          glowColor: p.glow,
-          lineColor: "rgba(170, 210, 255, 1)",
-          pointColor: "rgba(255,255,255,1)",
-        }));
-      },
-    };
-  }, []);
-    
-  // Pointer interactions: left click add point, right click undo
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const onPointerDown = (e: PointerEvent) => {
-      if (e.button === 2) {
-        e.preventDefault();
-        actions.undo();
-        return;
-      }
-      if (e.button !== 0) return;
-
-      const p = canvasToNormalizedPoint(canvas, e.clientX, e.clientY);
-      actions.addPoint(p.x, p.y);
-
-      const nextCount = scene.points.length + 1;
-      setGuideStep((prev) => {
-        if (prev >= 4) return prev;
-        if (prev === 0) return 1; // head
-        if (prev === 1) return nextCount >= 3 ? 2 : 1; // +2 points
-        if (prev === 2) return nextCount >= 5 ? 3 : 2; // +2 points
-        if (prev === 3) return 4; // tail
-        return prev;
-      });
-    };
-
-    const onContextMenu = (e: MouseEvent) => e.preventDefault();
-
-    canvas.addEventListener("pointerdown", onPointerDown);
-    canvas.addEventListener("contextmenu", onContextMenu);
-    return () => {
-      canvas.removeEventListener("pointerdown", onPointerDown);
-      canvas.removeEventListener("contextmenu", onContextMenu);
-    };
-  }, [actions, scene.points.length]);
-
-  const onExport = async () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    
-    // Create a temp canvas for sync 2d copy to ensure dpr consistency isn't needed if we just grab current buffer?
-    // Actually our renderConstellation is pure, so let's re-render to a new clean canvas for export.
-    const exportW = 1920; 
-    const exportH = 1080;
-    
-    const off = document.createElement('canvas');
-    off.width = exportW;
-    off.height = exportH;
-    const ctx = off.getContext('2d');
-    if(!ctx) return;
-    
-    // Fill background immediately in case of transparency
-    ctx.fillStyle = scene.bg.a;
-    ctx.fillRect(0,0,exportW, exportH);
-
-    renderConstellation(ctx, scene, performance.now(), { w: exportW, h: exportH, dpr: 1 });
-    
-    off.toBlob(blob => {
-        if(!blob) return;
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'constellation-card.png';
-        a.click();
-        URL.revokeObjectURL(url);
-        setStatus("已导出 PNG。");
-    }, 'image/png');
+  const getBgPoint = (clientX: number, clientY: number) => {
+    const canvas = bgCanvasRef.current;
+    if (!canvas) return null;
+    const r = canvas.getBoundingClientRect();
+    const { dpr } = bgSizeRef.current;
+    const x = (clientX - r.left) * dpr;
+    const y = (clientY - r.top) * dpr;
+    return { x, y, w: r.width * dpr, h: r.height * dpr };
   };
 
-  const onShare = async () => {
-    try {
-      const { id } = await createShare(scene as any); 
-      const url = makeShareUrl(id);
-      await navigator.clipboard.writeText(url);
-      setStatus(`分享链接已复制（${id}）`);
-    } catch {
-      setStatus("生成分享链接失败。");
+  const pickBlossom = (x: number, y: number) => {
+    let best: PeachBlossom | null = null;
+    let bestD2 = Infinity;
+    for (let i = blossomsRef.current.length - 1; i >= 0; i--) {
+      const b = blossomsRef.current[i];
+      if (b.kind !== "blossom") continue;
+      const dx = x - b.x;
+      const dy = y - b.y;
+      const d2 = dx * dx + dy * dy;
+      const hit = Math.max(40, b.r * 1.2);
+      if (d2 <= hit * hit && d2 < bestD2) {
+        best = b;
+        bestD2 = d2;
+      }
     }
+    return best;
   };
 
   return (
-    <div className="appRoot">
-      <header className="topBar">
-        <div className="brand">
-          <div className="dot" />
-          <div className="title">Qiji · 星图贺卡</div>
-        </div>
-        <div className="topHint">{status}</div>
-      </header>
+    <div
+      className="newYearRoot"
+      onPointerDownCapture={(e) => {
+        if (fortuneOpen) return;
+        const target = e.target as Node;
+        if ((bookRef.current && bookRef.current.contains(target)) || (controlsRef.current && controlsRef.current.contains(target))) return;
 
-      <div className="layout">
-        <div className="stage">
-          <canvas ref={canvasRef} className="stageCanvas" />
-          
-          {/* Guide Overlay */}
-          {guideStep < 4 && (
-            <div className="guideOverlay">
-              <div className="guideText">{currentGuide.hint}</div>
+        const p = getBgPoint(e.clientX, e.clientY);
+        if (!p) return;
+
+        const picked = pickBlossom(p.x, p.y);
+        if (picked && typeof picked.id === "number") {
+          dragRef.current = { id: picked.id, pointerId: e.pointerId, dx: picked.x - p.x, dy: picked.y - p.y };
+        } else if (picked) {
+          picked.id = nextIdRef.current++;
+          picked.user = true;
+          dragRef.current = { id: picked.id, pointerId: e.pointerId, dx: picked.x - p.x, dy: picked.y - p.y };
+        } else {
+          const W = p.w;
+          const H = p.h;
+          const nb = createUserBlossom(p.x, p.y, W, H, 20260129);
+          nb.id = nextIdRef.current++;
+          blossomsRef.current.push(nb);
+          dragRef.current = { id: nb.id, pointerId: e.pointerId, dx: 0, dy: 0 };
+        }
+
+        (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+      }}
+      onPointerMoveCapture={(e) => {
+        if (fortuneOpen) return;
+        const drag = dragRef.current;
+        if (!drag || drag.pointerId !== e.pointerId) return;
+        const p = getBgPoint(e.clientX, e.clientY);
+        if (!p) return;
+        const b = blossomsRef.current.find((it) => it.id === drag.id);
+        if (!b) return;
+
+        const pad = Math.max(40, b.r * 0.6);
+        b.x = Math.max(pad, Math.min(p.w - pad, p.x + drag.dx));
+        b.y = Math.max(pad, Math.min(p.h - pad, p.y + drag.dy));
+        b.user = true;
+      }}
+      onPointerUpCapture={(e) => {
+        if (fortuneOpen) return;
+        if (dragRef.current?.pointerId === e.pointerId) dragRef.current = null;
+        try {
+          (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+        } catch {
+          // ignore
+        }
+      }}
+      onPointerCancelCapture={(e) => {
+        if (fortuneOpen) return;
+        if (dragRef.current?.pointerId === e.pointerId) dragRef.current = null;
+      }}
+    >
+      <canvas ref={bgCanvasRef} className="bgCanvas" />
+
+      <div className="cardStage">
+        <div ref={bookRef} className="book" data-open={open ? "1" : "0"}>
+          <div className="page inside" onClick={() => open && triggerFireworks()} role="button" tabIndex={-1}>
+            <canvas ref={fireCanvasRef} className="fireworksCanvas" />
+            <div className="insideContent">
+              <div className="insideFrame" aria-hidden="true" />
+                    <div className="insideBlessingVertical">
+                      <div className="insidePoemLines">
+                        <span className="insidePoemText">一元初始</span>
+                        <span className="insidePoemText">万象更新</span>
+                        <span className="insidePoemText">奇绩创坛祝您新春大吉</span>
+                      </div>
+                    </div>
+                    <div className="insidePoemSig">敬上：奇绩创坛</div>
             </div>
-          )}
+          </div>
 
-          <div className="stageTip">
-            <div className="stageTipTitle">{guideStep < 4 ? "绘画引导中..." : "自由创作模式"}</div>
-            <div className="stageTipSub">{status}</div>
+          <div
+            className="page cover"
+            role="button"
+            tabIndex={0}
+            onClick={() => setOpen((v) => !v)}
+            onKeyDown={(e: ReactKeyboardEvent<HTMLDivElement>) => {
+              if (e.key === "Enter" || e.key === " ") setOpen((v) => !v);
+            }}
+          >
+            <div className="coverPattern" aria-hidden="true" />
+            <div className="coverFrame" aria-hidden="true" />
+            <div className="coverSheen" aria-hidden="true" />
+            <div className="coverGlow" />
+            <div className="coverContent">
+              <img className="coverEmblem coverEmblemGold" src="/picture.png" alt="徽标" draggable={false} />
+              <div className="coverMain coverMainYear">2026</div>
+              <div className="coverSub">HAPPY SPRING FESTIVAL</div>
+              <div className="coverFooter">
+                <div className="coverHint">点击翻开</div>
+              </div>
+            </div>
           </div>
         </div>
 
-        <aside className="panel">
-          <section className="card">
-            <div className="cardTitle">祝福语</div>
-            <textarea
-              className="textarea"
-              value={scene.text.content}
-              onChange={(e) => setScene((s) => ({ ...s, text: { ...s.text, content: e.target.value } }))}
-              placeholder="输入祝福语…"
-              rows={4}
-            />
-            <div className="row">
-              <label className="label">字号</label>
-              <input
-                className="range"
-                type="range"
-                min={26}
-                max={64}
-                value={scene.text.fontSize}
-                onChange={(e) => setScene((s) => ({ ...s, text: { ...s.text, fontSize: Number(e.target.value) } }))}
-              />
-              <div className="pill">{scene.text.fontSize}px</div>
-            </div>
-          </section>
+        <div ref={controlsRef} className="controls">
+          <button className="btn" onClick={() => setOpen((v) => !v)}>
+            {open ? "合上" : "翻开"}
+          </button>
+          <button className="btn" onClick={triggerFireworks} disabled={!open}>
+            放烟花
+          </button>
+          <button className="btn" onClick={openFortuneUI}>
+            {fortunePicked ? "查看签语" : "抽签"}
+          </button>
+          <button className="btn" onClick={() => setBlossomLevel((s) => (s === "light" ? "heavy" : "light"))}>
+            {blossomLevel === "light" ? "桃花更多" : "桃花更少"}
+          </button>
+        </div>
 
-          <section className="card">
-            <div className="cardTitle">布局与外观</div>
-            <div className="btnGrid">
-              <button className="btn" onClick={actions.toggleTemplate}>切换模板</button>
-              <button className="btn" onClick={actions.randomPalette}>换配色</button>
-              <button className="btn" onClick={actions.undo} disabled={scene.points.length === 0}>撤销</button>
-              <button className="btn danger" onClick={actions.clear} disabled={scene.points.length === 0}>清空</button>
-            </div>
-          </section>
+        {fortuneOpen ? (
+          <div
+            className="fortuneOverlay"
+            role="dialog"
+            aria-modal="true"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) closeFortuneUI();
+            }}
+          >
+            <div className={"fortuneModal " + (fortuneUI === "select" ? "isSelect" : "isResult")}> 
+              {fortuneUI === "select" ? (
+                <>
+                  <div className="fortuneHeader">
+                    <div className="fortuneGrade">上签库</div>
+                    <div className="fortuneTitle">请选择一张签卡</div>
+                  </div>
+                  <div className="fortuneCards" role="list">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        className={"fortuneCard" + (selectedCard === i ? " isSelected" : "")}
+                        onClick={() => pickFortuneCard(i)}
+                        role="listitem"
+                        aria-label={`选择第 ${i + 1} 张签卡`}
+                      >
+                        <span className="fortuneCardInner" aria-hidden="true">
+                          <span className="fortuneCardFace fortuneCardBack" />
+                          <span className="fortuneCardFace fortuneCardFront" />
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                  <div className="fortuneActions">
+                    <button className="btn" onClick={closeFortuneUI}>
+                      关闭
+                    </button>
+                  </div>
+                </>
+              ) : fortuneUI === "result" && fortune ? (
+                <>
+                  <div className="fortuneHeader">
+                    <div className="fortuneGrade">{fortune.grade}</div>
+                    <div className="fortuneTitle">{fortune.title}</div>
+                  </div>
 
-          <section className="card">
-            <div className="cardTitle">导出与分享</div>
-            <div className="btnStack">
-              <button className="btn primary" onClick={onExport}>导出 PNG</button>
-              <button className="btn primary" onClick={onShare}>生成分享链接（复制）</button>
+                  <div className="fortuneCards isResult" aria-hidden="true">
+                    {Array.from({ length: 5 }).map((_, i) => {
+                      const selected = selectedCard === i;
+                      return (
+                        <div key={i} className={"fortuneCard" + (selected ? " isSelected" : " isDim")}
+                          >
+                          <div className="fortuneCardInner">
+                            <div className="fortuneCardFace fortuneCardBack" />
+                            <div className="fortuneCardFace fortuneCardFront">
+                              {selected ? (
+                                <div className="fortuneCardFrontText">
+                                  <div className="fortuneCardFrontGrade">{fortune.grade}</div>
+                                  <div className="fortuneCardFrontTitle">{fortune.title}</div>
+                                </div>
+                              ) : null}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="fortunePoem">
+                    {fortune.poem.map((line) => (
+                      <div key={line} className="fortunePoemLine">
+                        {line}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="fortuneSection">
+                    <div className="fortuneLabel">解析</div>
+                    <div className="fortuneText">{fortune.interpretation}</div>
+                  </div>
+                  <div className="fortuneSection">
+                    <div className="fortuneLabel">建议</div>
+                    <ul className="fortuneList">
+                      {fortune.advice.map((a) => (
+                        <li key={a}>{a}</li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div className="fortuneActions">
+                    <button className="btn" onClick={closeFortuneUI}>
+                      关闭
+                    </button>
+                  </div>
+                </>
+              ) : null}
             </div>
-            <div className="footnote">
-              建议点 8–18 个星点效果最好；点太密会自动只连近邻线。
-            </div>
-          </section>
-        </aside>
+          </div>
+        ) : null}
       </div>
     </div>
   );
